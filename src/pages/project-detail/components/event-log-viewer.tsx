@@ -65,6 +65,12 @@ export function EventLogViewer({
   const [subagentPromptExpanded, setSubagentPromptExpanded] = useState(false);
   const [jsonCopied, setJsonCopied] = useState(false);
 
+  // Flash animation state for new events
+  const [flashingByteOffsets, setFlashingByteOffsets] = useState<Set<number>>(new Set());
+  const [subagentFlashingByteOffsets, setSubagentFlashingByteOffsets] = useState<Set<number>>(new Set());
+  const prevByteOffsetsRef = useRef<Set<number>>(new Set());
+  const prevSubagentByteOffsetsRef = useRef<Set<number>>(new Set());
+
   const rowHeight = 32;
 
   // Handle rows rendered to detect when near bottom for infinite loading
@@ -262,6 +268,56 @@ export function EventLogViewer({
     }
   }, [subagentSelectedEvent, projectPath, selectedSubagentId]);
 
+  // Detect new main events and trigger flash animation
+  useEffect(() => {
+    const currentOffsets = new Set(events.map((e) => e.byteOffset));
+    const newFlashing = new Set<number>();
+
+    // Find events that weren't in the previous set
+    for (const offset of currentOffsets) {
+      if (!prevByteOffsetsRef.current.has(offset)) {
+        newFlashing.add(offset);
+      }
+    }
+
+    // Only flash if we had previous data (skip initial load)
+    if (newFlashing.size > 0 && prevByteOffsetsRef.current.size > 0) {
+      setFlashingByteOffsets(newFlashing);
+      // Clear flash after animation completes (3 flashes = 900ms)
+      const timer = setTimeout(() => {
+        setFlashingByteOffsets(new Set());
+      }, 900);
+      return () => clearTimeout(timer);
+    }
+
+    prevByteOffsetsRef.current = currentOffsets;
+  }, [events]);
+
+  // Detect new sub-agent events and trigger flash animation
+  useEffect(() => {
+    const currentOffsets = new Set(subagentEvents.map((e) => e.byteOffset));
+    const newFlashing = new Set<number>();
+
+    // Find events that weren't in the previous set
+    for (const offset of currentOffsets) {
+      if (!prevSubagentByteOffsetsRef.current.has(offset)) {
+        newFlashing.add(offset);
+      }
+    }
+
+    // Only flash if we had previous data (skip initial load)
+    if (newFlashing.size > 0 && prevSubagentByteOffsetsRef.current.size > 0) {
+      setSubagentFlashingByteOffsets(newFlashing);
+      // Clear flash after animation completes (3 flashes = 900ms)
+      const timer = setTimeout(() => {
+        setSubagentFlashingByteOffsets(new Set());
+      }, 900);
+      return () => clearTimeout(timer);
+    }
+
+    prevSubagentByteOffsetsRef.current = currentOffsets;
+  }, [subagentEvents]);
+
   // Handler for selecting a main event - closes subagent panel, opens JSON viewer
   const handleSelectMainEvent = useCallback((event: typeof events[0]) => {
     // Close subagent panel if open
@@ -297,8 +353,9 @@ export function EventLogViewer({
       summaryMap,
       selectedSubagentId,
       highlightedIndices,
+      flashingByteOffsets,
     }),
-    [events, summaryMap, handleSelectMainEvent, handleSelectSubagent, selectedSubagentId, highlightedIndices]
+    [events, summaryMap, handleSelectMainEvent, handleSelectSubagent, selectedSubagentId, highlightedIndices, flashingByteOffsets]
   );
 
   const subagentRowProps = useMemo(
@@ -308,8 +365,9 @@ export function EventLogViewer({
       onSelectSubagent: () => {}, // No nested sub-agent selection
       summaryMap: new Map<string, string>(),
       selectedSubagentId: null,
+      flashingByteOffsets: subagentFlashingByteOffsets,
     }),
-    [subagentEvents]
+    [subagentEvents, subagentFlashingByteOffsets]
   );
 
   // Main event list component

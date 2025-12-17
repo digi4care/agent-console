@@ -16,12 +16,14 @@ export function EventRowComponent({
   summaryMap,
   selectedSubagentId,
   highlightedIndices,
+  flashingByteOffsets,
 }: EventRowProps) {
   const event = events[index];
   const isCompaction = event.subtype === "compact_boundary";
   const isSubagentLaunch = !!event.launchedAgentId;
   const linkedSummary = event.logicalParentUuid ? summaryMap.get(event.logicalParentUuid) : null;
   const isHighlighted = highlightedIndices?.has(index) ?? false;
+  const isFlashing = flashingByteOffsets?.has(event.byteOffset) ?? false;
 
   // Highlight wrapper - adds a visible boundary box around highlighted rows
   const HighlightWrapper = ({ children }: { children: React.ReactNode }) => {
@@ -41,7 +43,10 @@ export function EventRowComponent({
       <div style={style} className="px-3">
         <HighlightWrapper>
           <div
-            className="h-full flex items-center cursor-pointer hover:bg-amber-500/10 rounded"
+            className={cn(
+              "h-full flex items-center cursor-pointer hover:bg-amber-500/10 rounded",
+              isFlashing && "animate-flash"
+            )}
             onClick={() => onSelectEvent(event)}
           >
             <span className="text-[0.65rem] text-muted-foreground w-[11.5rem] shrink-0 font-mono whitespace-nowrap">
@@ -83,7 +88,8 @@ export function EventRowComponent({
               "h-full flex items-center cursor-pointer rounded transition-colors",
               isSelected
                 ? "bg-purple-500/20 hover:bg-purple-500/25"
-                : "hover:bg-purple-500/10"
+                : "hover:bg-purple-500/10",
+              isFlashing && "animate-flash"
             )}
             onClick={() => onSelectSubagent(event.launchedAgentId!)}
           >
@@ -122,7 +128,10 @@ export function EventRowComponent({
       <HighlightWrapper>
         <div className="h-full border-b border-border/50 py-1">
           <div
-            className="flex items-center gap-2 cursor-pointer hover:bg-muted/30 rounded px-1 -mx-1 h-full"
+            className={cn(
+              "flex items-center gap-2 cursor-pointer hover:bg-muted/30 rounded px-1 -mx-1 h-full",
+              isFlashing && "animate-flash"
+            )}
             onClick={() => onSelectEvent(event)}
           >
             {/* Timestamp */}

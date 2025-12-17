@@ -73,6 +73,7 @@ export interface EventRowBaseProps {
   summaryMap: Map<string, string>;
   selectedSubagentId: string | null;
   highlightedIndices?: Set<number>;
+  flashingByteOffsets?: Set<number>;
 }
 
 // Full props received by the component (includes react-window injected props)
