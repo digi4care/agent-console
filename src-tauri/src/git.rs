@@ -24,11 +24,49 @@ pub struct GitFileDiff {
 /// Get the original (HEAD) and current content of a file for diff comparison.
 ///
 /// # Arguments
-/// * `project_path` - Path to the project/repository root
-/// * `file_path` - Relative path to the file within the project
+/// * `project_path` - Path to the project/repository root (used as fallback)
+/// * `file_path` - Path to the file (can be absolute or relative to project)
+///
+/// This function discovers the git repository that actually contains the file,
+/// which may be different from project_path when editing files outside the project.
 pub fn get_git_file_diff(project_path: &str, file_path: &str) -> Result<GitFileDiff, String> {
-    let repo = Repository::open(project_path)
-        .map_err(|e| format!("Failed to open repository: {}", e))?;
+    // Determine the actual file path on disk
+    let actual_file_path = if Path::new(file_path).is_absolute() {
+        Path::new(file_path).to_path_buf()
+    } else {
+        Path::new(project_path).join(file_path)
+    };
+
+    // Try to discover the git repository that contains this file
+    // This handles the case where the file is in a different repo than project_path
+    let (repo, relative_path) = if actual_file_path.exists() {
+        // Discover repo from the file's parent directory
+        let parent_dir = actual_file_path.parent().unwrap_or(Path::new("."));
+        match Repository::discover(parent_dir) {
+            Ok(repo) => {
+                // Get the repo's workdir to compute relative path
+                let workdir = repo
+                    .workdir()
+                    .ok_or_else(|| "Repository has no working directory".to_string())?;
+                let rel = actual_file_path
+                    .strip_prefix(workdir)
+                    .map(|p| p.to_path_buf())
+                    .unwrap_or_else(|_| Path::new(file_path).to_path_buf());
+                (repo, rel)
+            }
+            Err(_) => {
+                // No git repo found, fall back to project_path
+                let repo = Repository::open(project_path)
+                    .map_err(|e| format!("Failed to open repository: {}", e))?;
+                (repo, Path::new(file_path).to_path_buf())
+            }
+        }
+    } else {
+        // File doesn't exist, try project_path repo
+        let repo = Repository::open(project_path)
+            .map_err(|e| format!("Failed to open repository: {}", e))?;
+        (repo, Path::new(file_path).to_path_buf())
+    };
 
     // Get HEAD commit
     let head = repo.head().map_err(|e| format!("Failed to get HEAD: {}", e))?;
@@ -39,8 +77,8 @@ pub fn get_git_file_diff(project_path: &str, file_path: &str) -> Result<GitFileD
         .tree()
         .map_err(|e| format!("Failed to get HEAD tree: {}", e))?;
 
-    // Try to get file content from HEAD
-    let (original, exists_at_head) = match head_tree.get_path(Path::new(file_path)) {
+    // Try to get file content from HEAD using the relative path
+    let (original, exists_at_head) = match head_tree.get_path(&relative_path) {
         Ok(entry) => {
             let obj = entry
                 .to_object(&repo)
@@ -58,9 +96,8 @@ pub fn get_git_file_diff(project_path: &str, file_path: &str) -> Result<GitFileD
     };
 
     // Get current file content from working directory
-    let full_path = Path::new(project_path).join(file_path);
-    let (current, exists_in_workdir) = if full_path.exists() {
-        let content = fs::read_to_string(&full_path)
+    let (current, exists_in_workdir) = if actual_file_path.exists() {
+        let content = fs::read_to_string(&actual_file_path)
             .map_err(|e| format!("Failed to read current file: {}", e))?;
         (content, true)
     } else {

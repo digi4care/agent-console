@@ -4,6 +4,7 @@ export type TabId = "events" | "edits";
 export type DiffViewMode = "split" | "unified";
 export type FileListMode = "tree" | "log";
 export type DiffContentMode = "edits" | "full";
+export type EventFilterMode = "filter" | "highlight";
 
 // Tree node for hierarchical display
 export interface TreeNode {
@@ -43,6 +44,9 @@ export interface EventLogViewerProps {
   loadingMore: boolean;
   filter: string;
   onFilterChange: (filter: string) => void;
+  filterMode: EventFilterMode;
+  onFilterModeChange: (mode: EventFilterMode) => void;
+  highlightedIndices?: Set<number>;
   summaryMap: Map<string, string>;
   onLoadMore: () => void;
   totalCount: number;
@@ -68,6 +72,7 @@ export interface EventRowBaseProps {
   onSelectSubagent: (agentId: string) => void;
   summaryMap: Map<string, string>;
   selectedSubagentId: string | null;
+  highlightedIndices?: Set<number>;
 }
 
 // Full props received by the component (includes react-window injected props)

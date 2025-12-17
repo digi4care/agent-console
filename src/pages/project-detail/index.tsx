@@ -17,7 +17,7 @@ import type { Session, ActiveSessionsResult, FileEdit, FileDiff, SessionEvent, S
 import { formatRelativeTime, truncateUuid } from "./utils";
 import { EditViewer } from "./components/edit-viewer";
 import { EventLogViewer } from "./components/event-log-viewer";
-import type { ProjectDetailPageProps, TabId } from "./types";
+import type { ProjectDetailPageProps, TabId, EventFilterMode } from "./types";
 
 export function ProjectDetailPage({ projectPath }: ProjectDetailPageProps) {
   const projectName = projectPath.split("/").pop() || projectPath;
@@ -45,6 +45,7 @@ export function ProjectDetailPage({ projectPath }: ProjectDetailPageProps) {
   const [eventsTotalCount, setEventsTotalCount] = useState(0);
   const [eventsHasMore, setEventsHasMore] = useState(false);
   const [eventFilter, setEventFilter] = useState<string>("all");
+  const [eventFilterMode, setEventFilterMode] = useState<EventFilterMode>("filter");
   const [selectedSubagentId, setSelectedSubagentId] = useState<string | null>(null);
 
   // Load sessions and active status on mount
@@ -261,17 +262,41 @@ export function ProjectDetailPage({ projectPath }: ProjectDetailPageProps) {
     setEventsHasMore(false);
   }, [selectedSessionId]);
 
-  // Filter events based on current filter
-  const filteredEvents = useMemo(() => {
-    if (eventFilter === "all") return events;
-    if (eventFilter === "compaction") {
-      return events.filter((e) => e.subtype === "compact_boundary" || e.eventType === "summary");
+  // Filter or highlight events based on current filter and mode
+  const { filteredEvents, highlightedIndices } = useMemo(() => {
+    const matchesFilter = (e: SessionEvent) => {
+      if (eventFilter === "all") return true;
+      if (eventFilter === "compaction") {
+        return e.subtype === "compact_boundary" || e.eventType === "summary";
+      }
+      if (eventFilter === "subagent") {
+        return !!e.launchedAgentId;
+      }
+      return e.eventType === eventFilter;
+    };
+
+    if (eventFilterMode === "filter") {
+      // Filter mode: return only matching events
+      return {
+        filteredEvents: eventFilter === "all" ? events : events.filter(matchesFilter),
+        highlightedIndices: undefined,
+      };
+    } else {
+      // Highlight mode: return all events, but track which indices to highlight
+      const highlighted = new Set<number>();
+      if (eventFilter !== "all") {
+        events.forEach((e, i) => {
+          if (matchesFilter(e)) {
+            highlighted.add(i);
+          }
+        });
+      }
+      return {
+        filteredEvents: events,
+        highlightedIndices: highlighted.size > 0 ? highlighted : undefined,
+      };
     }
-    if (eventFilter === "subagent") {
-      return events.filter((e) => !!e.launchedAgentId);
-    }
-    return events.filter((e) => e.eventType === eventFilter);
-  }, [events, eventFilter]);
+  }, [events, eventFilter, eventFilterMode]);
 
   // Build summary lookup map for compaction events
   const summaryMap = useMemo(() => {
@@ -392,6 +417,9 @@ export function ProjectDetailPage({ projectPath }: ProjectDetailPageProps) {
             loadingMore={eventsLoadingMore}
             filter={eventFilter}
             onFilterChange={setEventFilter}
+            filterMode={eventFilterMode}
+            onFilterModeChange={setEventFilterMode}
+            highlightedIndices={highlightedIndices}
             summaryMap={summaryMap}
             onLoadMore={loadMoreEvents}
             totalCount={eventsTotalCount}

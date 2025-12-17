@@ -5,11 +5,19 @@ import { Panel, PanelGroup, PanelResizeHandle, type ImperativePanelHandle } from
 import { List, type ListImperativeAPI } from "react-window";
 import {
   IconChevronDown,
+  IconCopy,
+  IconCheck,
   IconLoader2,
   IconStack2,
   IconX,
 } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import type { SessionEventsResponse } from "@/lib/types";
 import { getEventBadgeClass } from "../utils";
 import type { EventLogViewerProps, EventRowBaseProps } from "../types";
@@ -22,6 +30,9 @@ export function EventLogViewer({
   loadingMore,
   filter,
   onFilterChange,
+  filterMode,
+  onFilterModeChange,
+  highlightedIndices,
   summaryMap,
   onLoadMore,
   totalCount,
@@ -52,6 +63,7 @@ export function EventLogViewer({
   const [subagentRawJson, setSubagentRawJson] = useState<string | null>(null);
   const [subagentRawJsonLoading, setSubagentRawJsonLoading] = useState(false);
   const [subagentPromptExpanded, setSubagentPromptExpanded] = useState(false);
+  const [jsonCopied, setJsonCopied] = useState(false);
 
   const rowHeight = 32;
 
@@ -284,8 +296,9 @@ export function EventLogViewer({
       onSelectSubagent: handleSelectSubagent,
       summaryMap,
       selectedSubagentId,
+      highlightedIndices,
     }),
-    [events, summaryMap, handleSelectMainEvent, handleSelectSubagent, selectedSubagentId]
+    [events, summaryMap, handleSelectMainEvent, handleSelectSubagent, selectedSubagentId, highlightedIndices]
   );
 
   const subagentRowProps = useMemo(
@@ -306,7 +319,28 @@ export function EventLogViewer({
       <div className="shrink-0 px-3 py-2 border-b border-border overflow-x-auto scrollbar-thin">
         <div className="flex items-center justify-between gap-2 min-w-fit">
           <div className="flex items-center gap-1 shrink-0">
-            <span className="text-xs text-muted-foreground mr-2 whitespace-nowrap">Filter:</span>
+            {/* Mode dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger className="flex items-center gap-1 px-2 py-0.5 rounded text-[0.65rem] font-medium bg-muted text-muted-foreground hover:text-foreground transition-colors whitespace-nowrap">
+                {filterMode === "filter" ? "Filter" : "Highlight"}
+                <IconChevronDown className="size-3" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                <DropdownMenuItem
+                  onClick={() => onFilterModeChange("filter")}
+                  className={cn(filterMode === "filter" && "bg-accent")}
+                >
+                  Filter
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => onFilterModeChange("highlight")}
+                  className={cn(filterMode === "highlight" && "bg-accent")}
+                >
+                  Highlight
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            {/* Category buttons */}
             {["all", "user", "assistant", "system", "compaction", "subagent"].map((f) => {
               const label = f === "subagent" ? "Sub-agent" : f.charAt(0).toUpperCase() + f.slice(1);
               return (
@@ -510,6 +544,23 @@ export function EventLogViewer({
                 </span>
                 <button
                   onClick={() => {
+                    if (jsonViewerJson) {
+                      navigator.clipboard.writeText(jsonViewerJson);
+                      setJsonCopied(true);
+                      setTimeout(() => setJsonCopied(false), 2000);
+                    }
+                  }}
+                  className="p-1 rounded hover:bg-muted transition-colors"
+                  title="Copy JSON"
+                >
+                  {jsonCopied ? (
+                    <IconCheck className="size-3.5 text-green-500" />
+                  ) : (
+                    <IconCopy className="size-3.5 text-muted-foreground" />
+                  )}
+                </button>
+                <button
+                  onClick={() => {
                     if (isSubagentJson) {
                       setSubagentSelectedEvent(null);
                       setSubagentRawJson(null);
@@ -519,6 +570,7 @@ export function EventLogViewer({
                     }
                   }}
                   className="p-1 rounded hover:bg-muted transition-colors"
+                  title="Close"
                 >
                   <IconX className="size-3.5 text-muted-foreground" />
                 </button>
