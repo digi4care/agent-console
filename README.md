@@ -75,4 +75,10 @@ The built app will be in `src-tauri/target/release/bundle/`.
 ./docker/tauri.sh pnpm tauri build
 ```
 
+### Clean up
+
+```bash
+sudo rm -rf node_modules src-tauri/target src-tauri/target-release dist .pnpm-store .turbo src-tauri/target/release/bundle docker/.docker.xauth
+```
+
 > Script expects Docker in $PATH and bind-mounts the repo inside the container. Use `--host-display` to reuse your X server or `--xvfb` for headless runs.
