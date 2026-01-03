@@ -14,6 +14,9 @@ use tauri::{AppHandle, State};
 use terminal::TerminalType;
 use watcher::WatcherState;
 
+#[cfg(target_os = "linux")]
+use std::ffi::OsStr;
+
 /// Discover all Claude Code projects (lightweight - no session content parsing).
 #[tauri::command]
 fn get_projects() -> Vec<Project> {
@@ -361,10 +364,40 @@ async fn reveal_in_file_manager(path: String) -> Result<(), String> {
             path.parent().unwrap_or(path)
         };
 
-        std::process::Command::new("xdg-open")
-            .arg(dir)
-            .spawn()
-            .map_err(|e| e.to_string())?;
+        fn run_linux_file_manager(cmd: &str, args: &[&OsStr]) -> Result<(), String> {
+            let mut command = std::process::Command::new(cmd);
+            for arg in args {
+                command.arg(arg);
+            }
+            // AppImage runtime env can break host apps; strip it.
+            command.env_remove("LD_LIBRARY_PATH");
+            command.env_remove("LD_PRELOAD");
+            command.env_remove("APPDIR");
+            command.env_remove("APPIMAGE");
+            // Force regular desktop handlers instead of portals that require app-id registration.
+            command.env("GTK_USE_PORTAL", "0");
+
+            match command.status() {
+                Ok(status) if status.success() => Ok(()),
+                Ok(status) => Err(format!("{} exited with status {}", cmd, status)),
+                Err(err) => Err(format!("Failed to run {}: {}", cmd, err)),
+            }
+        }
+
+        let dir_os = dir.as_os_str();
+        let exec = OsStr::new("exec");
+        let open = OsStr::new("open");
+
+        let success = run_linux_file_manager("xdg-open", &[dir_os]).is_ok()
+            || run_linux_file_manager("kioclient5", &[exec, dir_os]).is_ok()
+            || run_linux_file_manager("kioclient", &[exec, dir_os]).is_ok()
+            || run_linux_file_manager("dolphin", &[dir_os]).is_ok()
+            || run_linux_file_manager("gio", &[open, dir_os]).is_ok()
+            || run_linux_file_manager("nautilus", &[dir_os]).is_ok();
+
+        if !success {
+            return Err("No compatible file manager command succeeded".to_string());
+        }
     }
 
     Ok(())
