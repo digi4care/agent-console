@@ -80,6 +80,27 @@ fn is_temp_project(name: &str) -> bool {
     name.contains("private-var-folders")
 }
 
+/// Determine whether an encoded directory name looks like a real project on this OS.
+fn is_supported_project_dir(name: &str) -> bool {
+    if is_temp_project(name) {
+        return false;
+    }
+    // macOS encodes "/Users/alice/project" as "-Users-alice-project"
+    if name.starts_with("-Users-") {
+        return true;
+    }
+    // Linux encodes "/home/alice/project" (and other top-level mounts) similarly
+    if name.starts_with("-home-") || name.starts_with("-mnt-") || name.starts_with("-media-") {
+        return true;
+    }
+    // Windows paths like "C:/Users/Alice/project" end up as "C:-Users-Alice-project"
+    if name.len() > 2 && name.as_bytes()[1] == b':' {
+        return true;
+    }
+    // Fallback: allow any encoded directory that starts with '-' to avoid missing valid paths.
+    name.starts_with('-')
+}
+
 /// Extract project path from session file content.
 fn extract_project_path_from_content(file_path: &Path) -> Option<String> {
     let file = File::open(file_path).ok()?;
@@ -135,8 +156,7 @@ pub fn discover_projects() -> Vec<Project> {
             None => continue,
         };
 
-        // Skip temp folders and non-user projects
-        if is_temp_project(&dir_name) || !dir_name.starts_with("-Users-") {
+        if !is_supported_project_dir(&dir_name) {
             continue;
         }
 

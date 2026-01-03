@@ -361,10 +361,24 @@ async fn reveal_in_file_manager(path: String) -> Result<(), String> {
             path.parent().unwrap_or(path)
         };
 
-        std::process::Command::new("xdg-open")
-            .arg(dir)
-            .spawn()
-            .map_err(|e| e.to_string())?;
+        let mut cmd = std::process::Command::new("xdg-open");
+        cmd.arg(dir);
+        // AppImage sets its own LD_LIBRARY_PATH which can break host apps (konsole, etc.)
+        // Remove it so the launched file manager uses system OpenSSL/libcurl.
+        cmd.env_remove("LD_LIBRARY_PATH");
+        cmd.env_remove("LD_PRELOAD");
+        cmd.env_remove("APPDIR");
+        cmd.env_remove("APPIMAGE");
+
+        match cmd.status() {
+            Ok(status) if status.success() => {}
+            Ok(status) => {
+                return Err(format!("xdg-open exited with status {}", status));
+            }
+            Err(err) => {
+                return Err(format!("Failed to launch file manager: {}", err));
+            }
+        }
     }
 
     Ok(())

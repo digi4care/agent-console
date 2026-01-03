@@ -10,6 +10,15 @@ fn shell_escape(s: &str) -> String {
     format!("'{}'", s.replace('\'', "'\\''"))
 }
 
+#[cfg(target_os = "linux")]
+fn sanitize_host_command(cmd: &mut Command) {
+    // AppImage injects its own runtime libs that can break host terminals (OpenSSL mismatch, etc.)
+    cmd.env_remove("LD_LIBRARY_PATH");
+    cmd.env_remove("LD_PRELOAD");
+    cmd.env_remove("APPDIR");
+    cmd.env_remove("APPIMAGE");
+}
+
 /// Supported terminal emulators.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "kebab-case")]
@@ -241,7 +250,10 @@ fn launch_terminal_linux(
 
     match terminal {
         TerminalType::GnomeTerminal => {
-            Command::new("gnome-terminal")
+            let mut cmd = Command::new("gnome-terminal");
+            #[cfg(target_os = "linux")]
+            sanitize_host_command(&mut cmd);
+            cmd
                 .arg("--")
                 .arg("sh")
                 .arg("-c")
@@ -250,7 +262,10 @@ fn launch_terminal_linux(
                 .map_err(|e| format!("Failed to launch gnome-terminal: {}", e))?;
         }
         TerminalType::Konsole => {
-            Command::new("konsole")
+            let mut cmd = Command::new("konsole");
+            #[cfg(target_os = "linux")]
+            sanitize_host_command(&mut cmd);
+            cmd
                 .arg("-e")
                 .arg("sh")
                 .arg("-c")
@@ -259,7 +274,10 @@ fn launch_terminal_linux(
                 .map_err(|e| format!("Failed to launch konsole: {}", e))?;
         }
         TerminalType::Alacritty => {
-            Command::new("alacritty")
+            let mut cmd = Command::new("alacritty");
+            #[cfg(target_os = "linux")]
+            sanitize_host_command(&mut cmd);
+            cmd
                 .arg("-e")
                 .arg("sh")
                 .arg("-c")
@@ -268,7 +286,10 @@ fn launch_terminal_linux(
                 .map_err(|e| format!("Failed to launch alacritty: {}", e))?;
         }
         TerminalType::Ghostty => {
-            Command::new("ghostty")
+            let mut cmd = Command::new("ghostty");
+            #[cfg(target_os = "linux")]
+            sanitize_host_command(&mut cmd);
+            cmd
                 .arg("-e")
                 .arg("sh")
                 .arg("-c")
