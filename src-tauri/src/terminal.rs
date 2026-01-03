@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::process::Command;
 
 /// Escape a string for safe use in shell commands.
+#[cfg(target_os = "macos")]
 fn shell_escape(s: &str) -> String {
     format!("'{}'", s.replace('\'', "'\\''"))
 }

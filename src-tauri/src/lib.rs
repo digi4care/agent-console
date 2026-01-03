@@ -388,17 +388,16 @@ async fn reveal_in_file_manager(path: String) -> Result<(), String> {
         let exec = OsStr::new("exec");
         let open = OsStr::new("open");
 
-        if run_linux_file_manager("xdg-open", &[dir_os]).is_ok()
+        let success = run_linux_file_manager("xdg-open", &[dir_os]).is_ok()
             || run_linux_file_manager("kioclient5", &[exec, dir_os]).is_ok()
             || run_linux_file_manager("kioclient", &[exec, dir_os]).is_ok()
             || run_linux_file_manager("dolphin", &[dir_os]).is_ok()
             || run_linux_file_manager("gio", &[open, dir_os]).is_ok()
-            || run_linux_file_manager("nautilus", &[dir_os]).is_ok()
-        {
-            return Ok(());
-        }
+            || run_linux_file_manager("nautilus", &[dir_os]).is_ok();
 
-        return Err("No compatible file manager command succeeded".to_string());
+        if !success {
+            return Err("No compatible file manager command succeeded".to_string());
+        }
     }
 
     Ok(())
