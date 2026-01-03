@@ -55,3 +55,24 @@ pnpm tauri build
 ```
 
 The built app will be in `src-tauri/target/release/bundle/`.
+
+### Build via Docker (pinned Rust 1.81)
+
+```bash
+# build image once (or whenever Dockerfile changes)
+./docker/tauri.sh --build
+
+# run commands inside the container, e.g. install deps
+./docker/tauri.sh pnpm install
+
+# development (host X11)
+./docker/tauri.sh --host-display pnpm tauri dev
+
+# development (headless CI)
+./docker/tauri.sh --xvfb pnpm tauri dev
+
+# build
+./docker/tauri.sh pnpm tauri build
+```
+
+> Script expects Docker in $PATH and bind-mounts the repo inside the container. Use `--host-display` to reuse your X server or `--xvfb` for headless runs.
