@@ -14,6 +14,9 @@ use tauri::{AppHandle, State};
 use terminal::TerminalType;
 use watcher::WatcherState;
 
+#[cfg(target_os = "linux")]
+use std::ffi::OsStr;
+
 /// Discover all Claude Code projects (lightweight - no session content parsing).
 #[tauri::command]
 fn get_projects() -> Vec<Project> {
@@ -361,24 +364,41 @@ async fn reveal_in_file_manager(path: String) -> Result<(), String> {
             path.parent().unwrap_or(path)
         };
 
-        let mut cmd = std::process::Command::new("xdg-open");
-        cmd.arg(dir);
-        // AppImage sets its own LD_LIBRARY_PATH which can break host apps (konsole, etc.)
-        // Remove it so the launched file manager uses system OpenSSL/libcurl.
-        cmd.env_remove("LD_LIBRARY_PATH");
-        cmd.env_remove("LD_PRELOAD");
-        cmd.env_remove("APPDIR");
-        cmd.env_remove("APPIMAGE");
-
-        match cmd.status() {
-            Ok(status) if status.success() => {}
-            Ok(status) => {
-                return Err(format!("xdg-open exited with status {}", status));
+        fn run_linux_file_manager(cmd: &str, args: &[&OsStr]) -> Result<(), String> {
+            let mut command = std::process::Command::new(cmd);
+            for arg in args {
+                command.arg(arg);
             }
-            Err(err) => {
-                return Err(format!("Failed to launch file manager: {}", err));
+            // AppImage runtime env can break host apps; strip it.
+            command.env_remove("LD_LIBRARY_PATH");
+            command.env_remove("LD_PRELOAD");
+            command.env_remove("APPDIR");
+            command.env_remove("APPIMAGE");
+            // Force regular desktop handlers instead of portals that require app-id registration.
+            command.env("GTK_USE_PORTAL", "0");
+
+            match command.status() {
+                Ok(status) if status.success() => Ok(()),
+                Ok(status) => Err(format!("{} exited with status {}", cmd, status)),
+                Err(err) => Err(format!("Failed to run {}: {}", cmd, err)),
             }
         }
+
+        let dir_os = dir.as_os_str();
+        let exec = OsStr::new("exec");
+        let open = OsStr::new("open");
+
+        if run_linux_file_manager("xdg-open", &[dir_os]).is_ok()
+            || run_linux_file_manager("kioclient5", &[exec, dir_os]).is_ok()
+            || run_linux_file_manager("kioclient", &[exec, dir_os]).is_ok()
+            || run_linux_file_manager("dolphin", &[dir_os]).is_ok()
+            || run_linux_file_manager("gio", &[open, dir_os]).is_ok()
+            || run_linux_file_manager("nautilus", &[dir_os]).is_ok()
+        {
+            return Ok(());
+        }
+
+        return Err("No compatible file manager command succeeded".to_string());
     }
 
     Ok(())
