@@ -65,11 +65,8 @@ The built app will be in `src-tauri/target/release/bundle/`.
 # run commands inside the container, e.g. install deps
 ./docker/tauri.sh pnpm install
 
-# development (host X11)
+# development
 ./docker/tauri.sh --host-display pnpm tauri dev
-
-# development (headless CI)
-./docker/tauri.sh --xvfb pnpm tauri dev
 
 # build
 ./docker/tauri.sh pnpm tauri build
@@ -81,4 +78,4 @@ The built app will be in `src-tauri/target/release/bundle/`.
 sudo rm -rf node_modules src-tauri/target src-tauri/target-release dist .pnpm-store .turbo src-tauri/target/release/bundle docker/.docker.xauth
 ```
 
-> Script expects Docker in $PATH and bind-mounts the repo inside the container. Use `--host-display` to reuse your X server or `--xvfb` for headless runs.
+> Script expects Docker in $PATH and bind-mounts the repo inside the container. Use `--host-display` to reuse your X server.
