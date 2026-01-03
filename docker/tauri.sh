@@ -50,6 +50,7 @@ docker_args=(
   -v "$PROJECT_ROOT:/workspace"
   -w /workspace
   --env PNPM_HOME=/usr/local/share/pnpm
+  --env RUST_MIN_STACK=67108864
 )
 
 if [[ $HOST_DISPLAY -eq 1 ]]; then

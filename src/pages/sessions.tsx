@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useTheme } from "@/components/theme-provider";
 import {
   IconArrowRight,
@@ -83,6 +84,7 @@ export function SessionsPage({ onSelectProject }: SessionsPageProps) {
   const [selectedTerminal, setSelectedTerminal] = useState<TerminalType | null>(
     null
   );
+  const [revealError, setRevealError] = useState<string | null>(null);
 
   // Load terminal preference from settings
   useEffect(() => {
@@ -146,6 +148,14 @@ export function SessionsPage({ onSelectProject }: SessionsPageProps) {
         <div className="max-w-5xl mx-auto p-6">
           {projects.length > 0 ? (
             <div className="border border-border rounded-lg overflow-hidden">
+              {revealError && (
+                <div className="px-4 pt-4">
+                  <Alert variant="destructive" className="border border-destructive/40">
+                    <AlertTitle>Failed to open file manager</AlertTitle>
+                    <AlertDescription>{revealError}</AlertDescription>
+                  </Alert>
+                </div>
+              )}
               {/* Table Header */}
               <div className="grid grid-cols-[1fr_72px_80px_100px_68px] gap-4 px-4 py-2.5 bg-muted/50 border-b border-border text-xs font-medium text-muted-foreground">
                 <div>Project</div>
@@ -289,11 +299,22 @@ export function SessionsPage({ onSelectProject }: SessionsPageProps) {
                         <Button
                           variant="ghost"
                           size="icon-xs"
-                          onClick={(e) => {
+                          onClick={async (e) => {
                             e.stopPropagation();
-                            invoke("reveal_in_file_manager", {
-                              path: project.projectPath,
-                            });
+                            try {
+                              await invoke("reveal_in_file_manager", {
+                                path: project.projectPath,
+                              });
+                              setRevealError(null);
+                            } catch (err) {
+                              const message =
+                                err instanceof Error ? err.message : String(err);
+                              console.error(
+                                "Failed to reveal project in file manager:",
+                                message
+                              );
+                              setRevealError(message);
+                            }
                           }}
                           title="Reveal in file manager"
                         >
