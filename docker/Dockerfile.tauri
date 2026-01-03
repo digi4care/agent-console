@@ -35,7 +35,7 @@ RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && rm -rf /var/lib/apt/lists/*
 
 # Install a pinned nightly toolchain (edition-2024 support)
-ENV RUST_NIGHTLY=nightly-2025-01-03
+ENV RUST_NIGHTLY=nightly-2024-12-20
 RUN rustup toolchain install ${RUST_NIGHTLY} \
     && rustup default ${RUST_NIGHTLY}
 
